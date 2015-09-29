@@ -37,15 +37,15 @@ int main()
     cv::Mat img1_dest;
     cv::medianBlur(img1,img1_dest,3);
 
-    //cv::imwrite("../ImagesForStudents/out.png",img1_dest);
-    //draw_histogram(img1_dest);
+    cv::imwrite("../ImagesForStudents/out.png",img1_dest);
+    draw_histogram(img1_dest);
     draw_histogram(img1,"../ImagesForStudents/hist_original.png");
 
     cv::Mat equalhist;
     cv::equalizeHist(img1_dest,equalhist);
 
-    //cv::imwrite("../ImagesForStudents/out_hist_eq.png",equalhist);
-    //draw_histogram(equalhist,"../ImagesForStudents/hist_eq.png");
+    cv::imwrite("../ImagesForStudents/out_hist_eq.png",equalhist);
+    draw_histogram(equalhist,"../ImagesForStudents/hist_eq.png");
 
     return 0;
 }
