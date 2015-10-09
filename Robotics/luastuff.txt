@@ -1,0 +1,5 @@
+Command for gripping the bottle in ROBWORK using Lua
+
+bottle_frame = wc:findFrame("Bottle")
+tool_frame = wc:findFrame("Tool")
+rw.gripFrame(bottle_frame,tool_frame,state)

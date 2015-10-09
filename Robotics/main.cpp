@@ -60,8 +60,7 @@ int main(){
 	  std::cout << "Device Found! \n";
 	}
 	
-	const State state = wc->getDefaultState();
-	State new_state = state;
+	State state = wc->getDefaultState();
 	Q q_pick(6,-3.142,-0.827,-3.002,-3.143,0.099,-1.573);
 	
 	Frame* bottle_frame = wc->findFrame("Bottle");
@@ -74,13 +73,12 @@ int main(){
 		std::cout << "TCP does not exist\n";
 	}
 	
-	device->setQ(q_pick,new_state);
-	Kinematics::gripFrame(bottle_frame,tcp_frame,new_state);
-
-
+	device->setQ(q_pick,state);
+	
+	Kinematics::gripFrame(bottle_frame,tcp_frame,state);
 	
 	CollisionDetector detector(wc, ProximityStrategyFactory::makeDefaultCollisionStrategy());
-	PlannerConstraint constraint = PlannerConstraint::make(&detector,device,new_state);
+	PlannerConstraint constraint = PlannerConstraint::make(&detector,device,state);
 	
 	QSampler::Ptr sampler = QSampler::makeConstrained(QSampler::makeUniform(device),constraint.getQConstraintPtr());
 	QMetric::Ptr metric = MetricFactory::makeEuclidean<Q>();
@@ -89,18 +87,39 @@ int main(){
 	
 	Q q_place(6,1.571,0.006,0.030,0.153,0.762,4.490);
 	
-	if (!checkCollisions(device, new_state, detector, q_pick))
+	if (!checkCollisions(device, state, detector, q_pick))
 		return 0;
-	if (!checkCollisions(device, new_state, detector, q_place))
+	if (!checkCollisions(device, state, detector, q_place))
 		return 0;
 
 	std::cout << "Planning from " << q_pick << " to " << q_place << std::endl;
 	QPath path;
 	Timer t;
-	
+	std::vector<double> total_time;
+	int n = 1000;
+	for(int i = 0;i<n;i++){
 	t.resetAndResume();
 	planner->query(q_pick,q_place,path,MAXTIME);
 	t.pause();
+	total_time.push_back(t.getTimeMs());
+	}
+	
+	double mean = 0;
+	double sigma = 0;
+	
+	for(int i = 0;i<n;i++){
+	 mean += total_time[i];
+	}
+	mean /= n;
+	
+	for(int i = 0;i<n;i++){
+	 sigma = pow(total_time[i] - mean,2);
+	}
+	
+	sigma /=(n-1);
+	std::cout << "Total run time with " << n << " runs = " << total_time << "\nMean of the runtime: " << mean << " Standard deviation of: " << sigma <<std::endl;
+
+	
 	generate_lua(path);
 	
 return 0;
@@ -122,8 +141,17 @@ void generate_lua(QPath q_vector ){
   myfile << "end\n\n";
 
   Q temp;
-  
-  for(int i = 0; i < q_vector.size() - 1; i++){
+  myfile << "setQ({";
+  for(int i = 0;i < q_vector[0].size()-1;i++){
+	myfile << q_vector[0][i] << ", ";
+  }
+  	  myfile << q_vector[0][q_vector[0].size()-1];
+	  myfile << "})\n";
+	  myfile << "bottle_frame = wc:findFrame(\"Bottle\")\n";
+	  myfile << "tool_frame = wc:findFrame(\"Tool\")\n";
+	  myfile << "rw.gripFrame(bottle_frame,tool_frame,state\n\n)";
+
+  for(int i = 1; i < q_vector.size() - 1; i++){
 	myfile << "setQ({";
 	  temp = q_vector[i];
 	  for(int j = 0;j < temp.size()-1;j++){
