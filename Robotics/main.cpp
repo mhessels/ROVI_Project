@@ -7,6 +7,7 @@
 #include <rwlibs/pathplanners/rrt/RRTPlanner.hpp>
 #include <rwlibs/pathplanners/rrt/RRTQToQPlanner.hpp>
 #include <rwlibs/proximitystrategies/ProximityStrategyFactory.hpp>
+#include <rw/pathplanning/PathAnalyzer.hpp>
 
 using namespace rw::common;
 using namespace rw::kinematics;
@@ -18,8 +19,12 @@ using namespace rw::trajectory;
 using namespace rwlibs::pathplanners;
 using namespace rwlibs::proximitystrategies;
 
+#define MAXTIME 100
+#define n 32
 
-void generate_lua(QPath);
+void generate_lua(QPath&,double);
+
+std::pair<double,double> plan_and_calculate(Q q_start, Q q_end, double eps, QToQPlanner::Ptr planner, WorkCell::Ptr,Device::Ptr);
 
 bool checkCollisions(Device::Ptr device, const State &state, const CollisionDetector &detector, const Q &q) {
 	State testState;
@@ -41,9 +46,13 @@ bool checkCollisions(Device::Ptr device, const State &state, const CollisionDete
 	return true;
 }
 
-#define MAXTIME 10.
 
-int main(){
+int main(int argc, char* argv[]){
+	if (argc != 5){
+	 std::cerr << "Wrong number of arguments\n";
+	 return 1;
+	}
+	
 	Math::seed();
 	const std::string wcFile = "/home/matthias/RobtekE15/ROVIProblem/Robotics/Workcells/Kr16WallWorkCell/Scene.wc.xml";
 	const std::string deviceName = "KukaKr16";
@@ -82,52 +91,38 @@ int main(){
 	
 	QSampler::Ptr sampler = QSampler::makeConstrained(QSampler::makeUniform(device),constraint.getQConstraintPtr());
 	QMetric::Ptr metric = MetricFactory::makeEuclidean<Q>();
-	double extend = 0.1;
-	QToQPlanner::Ptr planner = RRTPlanner::makeQToQPlanner(constraint, sampler, metric, extend, RRTPlanner::RRTConnect);
-	
 	Q q_place(6,1.571,0.006,0.030,0.153,0.762,4.490);
 	
 	if (!checkCollisions(device, state, detector, q_pick))
 		return 0;
 	if (!checkCollisions(device, state, detector, q_place))
 		return 0;
+	
+	std::ofstream datapoints;
+	datapoints.open(argv[4]);
+	datapoints << "Epsilon \t Mean time \t Mean path length\tMean distance traveled\n";
 
-	std::cout << "Planning from " << q_pick << " to " << q_place << std::endl;
-	QPath path;
-	Timer t;
-	std::vector<double> total_time;
-	int n = 1000;
-	for(int i = 0;i<n;i++){
-	t.resetAndResume();
-	planner->query(q_pick,q_place,path,MAXTIME);
-	t.pause();
-	total_time.push_back(t.getTimeMs());
+	double extend = atof(argv[1]);
+	double extend_max = atof(argv[2]);
+	double extend_step = atof(argv[3]);
+	std::pair<double,double> values;
+	while (extend<extend_max){
+	QToQPlanner::Ptr planner = RRTPlanner::makeQToQPlanner(constraint, sampler, metric, extend, RRTPlanner::RRTConnect);
+	
+	values = plan_and_calculate(q_pick,q_place,extend,planner,wc,device);
+	
+	datapoints << extend << "\t" << values.first << "\t" << values.second << "\t" << values.second*extend << "\n";
+	extend +=extend_step;
 	}
-	
-	double mean = 0;
-	double sigma = 0;
-	
-	for(int i = 0;i<n;i++){
-	 mean += total_time[i];
-	}
-	mean /= n;
-	
-	for(int i = 0;i<n;i++){
-	 sigma = pow(total_time[i] - mean,2);
-	}
-	
-	sigma /=(n-1);
-	std::cout << "Total run time with " << n << " runs = " << total_time << "\nMean of the runtime: " << mean << " Standard deviation of: " << sigma <<std::endl;
-
-	
-	generate_lua(path);
+	datapoints.close();
 	
 return 0;
 }
 
-void generate_lua(QPath q_vector ){
+void generate_lua(QPath &q_vector,double eps){
+  std::string app = std::to_string(eps);
   std::ofstream myfile;
-  myfile.open("q_vectors.txt");
+  myfile.open("luaE" + app + ".txt");
   
   myfile << "wc = rws.getRobWorkStudio():getWorkCell() \n";
   myfile << "state = wc:getDefaultState()\n";
@@ -149,9 +144,9 @@ void generate_lua(QPath q_vector ){
 	  myfile << "})\n";
 	  myfile << "bottle_frame = wc:findFrame(\"Bottle\")\n";
 	  myfile << "tool_frame = wc:findFrame(\"Tool\")\n";
-	  myfile << "rw.gripFrame(bottle_frame,tool_frame,state\n\n)";
+	  myfile << "rw.gripFrame(bottle_frame,tool_frame,state)\n\n";
 
-  for(int i = 1; i < q_vector.size() - 1; i++){
+  for(int i = 1; i < q_vector.size(); i++){
 	myfile << "setQ({";
 	  temp = q_vector[i];
 	  for(int j = 0;j < temp.size()-1;j++){
@@ -160,5 +155,46 @@ void generate_lua(QPath q_vector ){
 	  myfile << temp[temp.size()-1];
 	  myfile << "})\n";
 	}
+	myfile.close();
 }
 
+std::pair<double,double> plan_and_calculate(Q q_start, Q q_end, double eps, QToQPlanner::Ptr planner, WorkCell::Ptr wc,Device::Ptr device){
+	std::pair<double,double> mu_pathl;
+	std::vector<double> total_time;
+	Timer t;
+	QPath temp;
+	PathAnalyzer::CartesianAnalysis distance_traveled;
+	State state = wc->getDefaultState();
+	int min_size = 20;
+	double path_length = 0;
+	for(int i = 0;i<n;i++){
+	Frame* tcp_frame = wc->findFrame("Tool");
+	device->setQ(q_start,state);
+	PathAnalyzer path_analyse(device,state);
+	QPath path;
+	t.resetAndResume();
+	planner->query(q_start,q_end,path,MAXTIME);
+	t.pause();
+	total_time.push_back(t.getTimeMs());
+	distance_traveled = path_analyse.analyzeCartesian(path,tcp_frame);
+	path_length += distance_traveled.length;
+	if(distance_traveled.length < min_size){
+	 min_size = distance_traveled.length;
+	 temp = path;
+	 std::cout << "Min_size: " << distance_traveled.length << std::endl;
+	}
+	}
+	generate_lua(temp,eps);
+	double mean = 0;
+	
+	for(int i = 0;i<n;i++){
+	 mean += total_time[i];
+	}
+	mean /= (double)n;
+	path_length /= (double)n;
+	
+	mu_pathl = std::make_pair(mean,path_length);
+	std::cout << "Epsilon = "  << eps << "\nMean time: " << mean << "\nMean distance traveled: " << path_length<<std::endl;
+
+  return mu_pathl;
+}
