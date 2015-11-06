@@ -78,12 +78,12 @@ void draw_histogram(cv::Mat &img, std::string image_name="../ImagesForStudents/o
   int hist_w = 512; int hist_h = 400;
   int bin_w = cvRound( (double) hist_w/histSize );
   
-  cv::Mat histImage = cv::Mat::zeros( hist_h, hist_w, CV_8UC1);
+  cv::Mat histImage = cv::Mat::zeros( hist_h, hist_w+10, CV_8UC1);
   
   cv::normalize(hist, hist, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat() );
   
   /// Draw for each channel
-  for( int i = 1; i < histSize; i++ )
+  for( int i = 11; i < histSize; i++ )
   {
 	line( histImage, cv::Point( bin_w*(i-1), hist_h - cvRound(hist.at<float>(i-1)) ) ,
 		  cv::Point( bin_w*(i), hist_h - cvRound(hist.at<float>(i)) ),
