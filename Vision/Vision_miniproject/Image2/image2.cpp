@@ -47,13 +47,13 @@ int main()
   draw_histogram(input_matrix,"./Histograms/Original_Histogram.png");
   
   cv::medianBlur(input_matrix,output_matrix,9);
-  row = image.rows;
-  col = image.cols;
+ 
+  padding = 0.05*col;
+ 
+  cv::copyMakeBorder(image, paddedImage, padding, padding, padding, padding, cv::BORDER_CONSTANT, 0);
+  row = paddedImage.rows;
+  col = paddedImage.cols;
   std::cout << row << ", " << col << std::endl;
- 
-  padding = 1*col;
- 
-  cv::copyMakeBorder(image, resImage, padding, padding, padding, padding, cv::BORDER_CONSTANT, 0);
  
   runAMF();
   
@@ -98,6 +98,7 @@ void draw_histogram(cv::Mat &img, std::string image_name="../ImagesForStudents/o
 void runAMF(){
         for(i = padding; i < row; i++){
                 for(j = padding; j < col; j++){
+// 				  std::cout<< "Alive" << std::endl;
                         S = Sinit;
                          stageA();
                 }
@@ -108,21 +109,21 @@ void findZs(){
          std::vector<int> vector;
          int vectorSize;
   
-          zxy = image.at<uchar>(i, j);
+          zxy = paddedImage.at<uchar>(i, j);
   
          for(int sizeH = 1; sizeH < S + 1; sizeH++){
-                 vector.push_back(image.at<uchar>(i + sizeH, j));
-                 vector.push_back(image.at<uchar>(i - sizeH, j));
-                 vector.push_back(image.at<uchar>(i, j + sizeH));
-                 vector.push_back(image.at<uchar>(i, j - sizeH));
+                 vector.push_back(paddedImage.at<uchar>(i + sizeH, j));
+                 vector.push_back(paddedImage.at<uchar>(i - sizeH, j));
+                 vector.push_back(paddedImage.at<uchar>(i, j + sizeH));
+                 vector.push_back(paddedImage.at<uchar>(i, j - sizeH));
                  for(int sizeW = 1; sizeW < S + 1; sizeW++){
-                         vector.push_back(image.at<uchar>(i + sizeH, j + sizeW));
-                         vector.push_back(image.at<uchar>(i + sizeH, j - sizeW));
-                         vector.push_back(image.at<uchar>(i - sizeH, j - sizeW));
-                         vector.push_back(image.at<uchar>(i - sizeH, j + sizeW));
+                         vector.push_back(paddedImage.at<uchar>(i + sizeH, j + sizeW));
+                         vector.push_back(paddedImage.at<uchar>(i + sizeH, j - sizeW));
+                         vector.push_back(paddedImage.at<uchar>(i - sizeH, j - sizeW));
+                         vector.push_back(paddedImage.at<uchar>(i - sizeH, j + sizeW));
                  }
          }
-         vector.push_back(image.at<uchar>(i, j));
+         vector.push_back(paddedImage.at<uchar>(i, j));
   
          vectorSize = vector.size();
          sort(vector.begin(), vector.end());
@@ -135,7 +136,7 @@ void findZs(){
          else{
                  zMed = vector[vectorSize / 2];
          }
-		 std::cout << vectorSize << std::endl;
+// 		 std::cout << vectorSize << std::endl;
         vector.erase(vector.begin(), vector.end());
 }
  
