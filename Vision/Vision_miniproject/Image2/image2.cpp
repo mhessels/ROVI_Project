@@ -65,6 +65,7 @@ int main()
 }
 
 
+
 void draw_histogram(cv::Mat &img, std::string image_name="../ImagesForStudents/out_hist.png"){
   
   int histSize = 255;
@@ -77,7 +78,7 @@ void draw_histogram(cv::Mat &img, std::string image_name="../ImagesForStudents/o
   int hist_w = 512; int hist_h = 400;
   int bin_w = cvRound( (double) hist_w/histSize );
   
-  cv::Mat histImage = cv::Mat::zeros( hist_h, hist_w, CV_8UC1);
+  cv::Mat histImage( hist_h, hist_w, CV_8UC1,cv::Scalar(255));
   
   cv::normalize(hist, hist, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat() );
   
@@ -86,14 +87,12 @@ void draw_histogram(cv::Mat &img, std::string image_name="../ImagesForStudents/o
   {
 	line( histImage, cv::Point( bin_w*(i-1), hist_h - cvRound(hist.at<float>(i-1)) ) ,
 		  cv::Point( bin_w*(i), hist_h - cvRound(hist.at<float>(i)) ),
-		  cv::Scalar( 255, 0, 0), 2, 8, 0  );
+		  cv::Scalar( 0, 0, 0), 2, 8, 0  );
   }
   
   cv::imwrite(image_name,histImage);
   
 }
-
-
 
 void runAMF(){
         for(i = padding; i < row; i++){

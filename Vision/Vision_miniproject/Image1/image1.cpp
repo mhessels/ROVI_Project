@@ -6,13 +6,6 @@
 
 void draw_histogram(cv::Mat&, std::string);
 
-/*
- * 
- * To clean this picture a alphatrim mean filter is implemented, but instead of using a normal alphatrim filter, it has been shifted to the right due to big amout of black pixels, i.e the weights have been applied to the alpha values.
- * 
- */
-
-
 int main()
 {
   cv::Mat input_matrix = cv::imread("./Images/Image1.png",CV_LOAD_IMAGE_GRAYSCALE);
@@ -24,7 +17,14 @@ int main()
   
   int rows = input_matrix.rows;
   int cols = input_matrix.cols;
-  
+  int count=0;
+  for(int i = 0;i<rows;i++){
+	for(int j = 0;j<cols;j++){
+	  if(input_matrix.at<uchar>(i, j) == 0)
+		count++;
+	}
+  }
+  std::cout << count << " " << rows*cols << " " << count/(double(rows)*cols)<< std::endl;
   std::vector<int> vectorMean;
   
   for(int i = 1; i < rows - 1; i++){
@@ -41,7 +41,6 @@ int main()
 	  
 	  std::sort(vectorMean.begin(),vectorMean.end());
 	  output_matrix.at<uchar>(i, j) = (vectorMean[k_size/2-2+shift] + vectorMean[k_size/2-1+shift]+ vectorMean[k_size/2+shift] + vectorMean[k_size/2+1+shift]+vectorMean[k_size/2+2+shift])/5;
-	  
 	  vectorMean.erase(vectorMean.begin(),vectorMean.end());
 	}
   }
@@ -68,7 +67,7 @@ void draw_histogram(cv::Mat &img, std::string image_name="../ImagesForStudents/o
   int hist_w = 512; int hist_h = 400;
   int bin_w = cvRound( (double) hist_w/histSize );
   
-  cv::Mat histImage = cv::Mat::zeros( hist_h, hist_w, CV_8UC1);
+  cv::Mat histImage( hist_h, hist_w, CV_8UC1,cv::Scalar(255));
   
   cv::normalize(hist, hist, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat() );
   
@@ -77,7 +76,7 @@ void draw_histogram(cv::Mat &img, std::string image_name="../ImagesForStudents/o
   {
 	line( histImage, cv::Point( bin_w*(i-1), hist_h - cvRound(hist.at<float>(i-1)) ) ,
 		  cv::Point( bin_w*(i), hist_h - cvRound(hist.at<float>(i)) ),
-		  cv::Scalar( 255, 0, 0), 2, 8, 0  );
+		  cv::Scalar( 0, 0, 0), 2, 8, 0  );
   }
   
   cv::imwrite(image_name,histImage);
